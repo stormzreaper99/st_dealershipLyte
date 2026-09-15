@@ -1,26 +1,244 @@
 local QBX = exports.qbx_core
-local zonesByDealership, activeTargetZones, activeLibZones, inPerimeterOf, permCache = {}, {}, {}, nil, {}
-local function cachedPermission(d,p)local k=d..'|'..p;if permCache[k]~=nil then return permCache[k] end;permCache[k]=false;CreateThread(function()permCache[k]=lib.callback.await('st_dealership:server:hasPermission',false,d,p) and true or false end);return false end
-local function clearPermissionCache()permCache={} end
-RegisterNetEvent('QBCore:Client:OnJobUpdate',clearPermissionCache);RegisterNetEvent('QBCore:Client:OnPlayerLoaded',clearPermissionCache);RegisterNetEvent('qbx_core:client:onJobUpdate',clearPermissionCache)
-function ST.GetZonesOfType(d,t)local o={};for _,z in ipairs(zonesByDealership[d] or {})do if z.zone_type==t then o[#o+1]=z end end;return o end
-local promptVisible=false
-local function hidePromptIfShown()if promptVisible then lib.hideTextUI();promptVisible=false end end
-local function teardownDynamicZones()for _,id in ipairs(activeTargetZones)do exports[Config.Target]:removeZone(id)end;activeTargetZones={};for _,h in ipairs(activeLibZones)do h:remove()end;activeLibZones={};hidePromptIfShown()end
-local function parsePoints(s)if not s then return nil end;local ok,p=pcall(json.decode,s);if not ok or not p or #p<3 then return nil end;local o={};for _,v in ipairs(p)do o[#o+1]=vector3(v.x,v.y,v.z)end;return o end
-local function buildInteractableZone(z,icon,defaultLabel,onInteract,canInteract)local label=(z.label and z.label~='')and z.label or defaultLabel;if z.interaction=='press_e' then local shown=false;local h=lib.zones.sphere({coords=vector3(z.pos_x,z.pos_y,z.pos_z),radius=1.5,onEnter=function()if not canInteract or canInteract()then lib.showTextUI(('[E] %s'):format(label));shown=true;promptVisible=true end end,onExit=function()if shown then lib.hideTextUI();shown=false;promptVisible=false end end,inside=function()if shown and IsControlJustPressed(0,38)then onInteract()end end});activeLibZones[#activeLibZones+1]=h else local id=exports[Config.Target]:addSphereZone({coords=vector3(z.pos_x,z.pos_y,z.pos_z),radius=.8,debug=Config.Debug,options={{icon=icon,label=label,onSelect=onInteract,canInteract=canInteract}}});activeTargetZones[#activeTargetZones+1]=id end end
-local function buildManagementPcTarget(d,z)buildInteractableZone(z,'fa-solid fa-desktop','Management',function()ST.OpenDealershipUI(d,'management')end,function()return cachedPermission(d,'manage_finances')end)end
-local function buildCustomerShowroomTarget(d,z)buildInteractableZone(z,'fa-solid fa-car-side','View Inventory',function()ST.OpenDealershipUI(d)end)end
-local function buildTradeInAppraisalTarget(d,z)buildInteractableZone(z,'fa-solid fa-right-left','Get Appraisal',function()ST.OpenDealershipUI(d,'tradein')end)end
-local function buildCustomTarget(d,z)buildInteractableZone(z,'fa-solid fa-location-dot','Interact',function()TriggerEvent('st_dealership:customZoneTriggered',d,z.id,z.label)end)end
-local function buildPerimeterZone(d,z)local p=parsePoints(z.points_json);if not p then return end;local h=lib.zones.poly({points=p,thickness=z.height or 6,onExit=function()if inPerimeterOf==d then inPerimeterOf=nil;if ST.IsTestDriveActive and ST.IsTestDriveActive()then lib.notify({title='Test Drive',description="You're leaving dealership property.",type='inform'})end end end,inside=function()inPerimeterOf=d end});activeLibZones[#activeLibZones+1]=h end
-local function buildOfficeZone(d,z)local p=parsePoints(z.points_json);if not p then return end;local h=lib.zones.poly({points=p,thickness=z.height or 3,onEnter=function()if not cachedPermission(d,'sell')then lib.notify({title=(z.label~='' and z.label)or'Office',description='Staff only.',type='inform'})end end});activeLibZones[#activeLibZones+1]=h end
-local function rebuildZones()teardownDynamicZones();for d,zones in pairs(zonesByDealership)do for _,z in ipairs(zones)do if z.zone_type=='management_pc'then buildManagementPcTarget(d,z)elseif z.zone_type=='customer_showroom'then buildCustomerShowroomTarget(d,z)elseif z.zone_type=='tradein_appraisal'then buildTradeInAppraisalTarget(d,z)elseif z.zone_type=='custom'then buildCustomTarget(d,z)elseif z.zone_type=='perimeter'then buildPerimeterZone(d,z)elseif z.zone_type=='office'then buildOfficeZone(d,z)end end end end
-RegisterNetEvent('st_dealership:client:syncZones',function(d,z)zonesByDealership[d]=z;rebuildZones()end)
-RegisterNetEvent('st_dealership:client:brandingUpdated',function(d,b)if ST.CurrentDealership==d and b and b.theme then SendNUIMessage({action='theme',theme=b.theme})end end)
-RegisterNetEvent('st_dealership:client:dealershipDeleted',function(d)zonesByDealership[d]=nil;rebuildZones()end)
-local INPUT_GUARD_MS,PLACEMENT_TIMEOUT_MS=250,120000
-local function confirmPressed()return IsControlJustPressed(0,18)or IsControlJustPressed(0,201)end
-local function cancelPressed()return IsControlJustPressed(0,177)or IsControlJustPressed(0,194)end
-function ST.CaptureZonePoint(zoneType)lib.showTextUI('[Enter] capture this spot   [Backspace] cancel');local started=GetGameTimer();while true do Wait(0);local e=GetGameTimer()-started;if e>PLACEMENT_TIMEOUT_MS then lib.notify({title='Zone',description='Placement timed out.',type='error'});return nil end;if e>INPUT_GUARD_MS then if confirmPressed()then local ped=PlayerPedId();local c=GetEntityCoords(ped);return{pos={x=c.x,y=c.y,z=c.z},heading=GetEntityHeading(ped)}end;if cancelPressed()then return nil end end end end
-function ST.CapturePolygon(zoneType)lib.showTextUI('[E] add corner   [Enter] finish (3+ corners)   [Backspace] undo/cancel');local pts,started={},GetGameTimer();while true do Wait(0);local c=GetEntityCoords(PlayerPedId());if GetGameTimer()-started>PLACEMENT_TIMEOUT_MS then lib.notify({title='Zone',description='Placement timed out.',type='error'});return nil end;for i,p in ipairs(pts)do DrawMarker(1,p.x,p.y,p.z+.1,0,0,0,0,0,0,.25,.25,.25,80,200,255,220,false,true,2,false,nil,nil,false);local n=pts[i+1];if n then DrawLine(p.x,p.y,p.z+.1,n.x,n.y,n.z+.1,80,200,255,200)end end;if #pts>0 then local l=pts[#pts];DrawLine(l.x,l.y,l.z+.1,c.x,c.y,c.z+.1,80,200,255,100);if #pts>=3 then local f=pts[1];DrawLine(c.x,c.y,c.z+.1,f.x,f.y,f.z+.1,80,200,255,60)end end;if GetGameTimer()-started>INPUT_GUARD_MS then if IsControlJustPressed(0,38)then pts[#pts+1]={x=c.x,y=c.y,z=c.z}end;if confirmPressed()then if #pts>=3 then return{points=pts,heading=GetEntityHeading(PlayerPedId())}end;lib.notify({title='Zone',description='Place at least 3 corners first.',type='error'})end;if cancelPressed()then if #pts>0 then pts[#pts]=nil else return nil end end end end end
+local zonesByDealership, activeTargetZones, activeLibZones = {}, {}, {}
+local inPerimeterOf, permCache = nil, {}
+local rebuildQueued = false
+local promptVisible = false
+
+local function permissionKey(dealership, permission)
+    return dealership .. '|' .. permission
+end
+
+local function cachedPermission(dealership, permission)
+    local key = permissionKey(dealership, permission)
+    local cached = permCache[key]
+    if cached ~= nil then return cached end
+
+    -- Permission checks are only initiated when a target becomes interactable;
+    -- once fetched, every target check is a local table lookup.
+    CreateThread(function()
+        local allowed = lib.callback.await('st_dealership:server:hasPermission', false, dealership, permission)
+        permCache[key] = allowed == true
+    end)
+    return false
+end
+
+local function clearPermissionCache()
+    permCache = {}
+end
+RegisterNetEvent('QBCore:Client:OnJobUpdate', clearPermissionCache)
+RegisterNetEvent('QBCore:Client:OnPlayerLoaded', clearPermissionCache)
+RegisterNetEvent('qbx_core:client:onJobUpdate', clearPermissionCache)
+
+function ST.GetZonesOfType(dealership, zoneType)
+    local result = {}
+    for _, zone in ipairs(zonesByDealership[dealership] or {}) do
+        if zone.zone_type == zoneType then result[#result + 1] = zone end
+    end
+    return result
+end
+
+local function hidePromptIfShown()
+    if promptVisible then
+        lib.hideTextUI()
+        promptVisible = false
+    end
+end
+
+local function teardownDynamicZones()
+    for _, id in ipairs(activeTargetZones) do exports[Config.Target]:removeZone(id) end
+    activeTargetZones = {}
+    for _, handle in ipairs(activeLibZones) do handle:remove() end
+    activeLibZones = {}
+    hidePromptIfShown()
+end
+
+local function parsePoints(pointsJson)
+    if not pointsJson then return nil end
+    local ok, points = pcall(json.decode, pointsJson)
+    if not ok or type(points) ~= 'table' or #points < 3 then return nil end
+    local result = {}
+    for _, point in ipairs(points) do result[#result + 1] = vector3(point.x, point.y, point.z) end
+    return result
+end
+
+local function buildInteractableZone(zone, icon, defaultLabel, onInteract, canInteract)
+    local label = zone.label and zone.label ~= '' and zone.label or defaultLabel
+    if zone.interaction == 'press_e' then
+        local shown = false
+        local handle = lib.zones.sphere({
+            coords = vector3(zone.pos_x, zone.pos_y, zone.pos_z),
+            radius = 1.5,
+            onEnter = function()
+                if not canInteract or canInteract() then
+                    lib.showTextUI(('[E] %s'):format(label))
+                    shown, promptVisible = true, true
+                end
+            end,
+            onExit = function()
+                if shown then lib.hideTextUI(); shown, promptVisible = false, false end
+            end,
+            inside = function()
+                if shown and IsControlJustPressed(0, 38) then onInteract() end
+            end,
+        })
+        activeLibZones[#activeLibZones + 1] = handle
+        return
+    end
+
+    activeTargetZones[#activeTargetZones + 1] = exports[Config.Target]:addSphereZone({
+        coords = vector3(zone.pos_x, zone.pos_y, zone.pos_z),
+        radius = 0.8,
+        debug = Config.Debug,
+        options = {{ icon = icon, label = label, onSelect = onInteract, canInteract = canInteract }},
+    })
+end
+
+local function buildManagementPcTarget(dealership, zone)
+    buildInteractableZone(zone, 'fa-solid fa-desktop', 'Management',
+        function() ST.OpenDealershipUI(dealership, 'management') end,
+        function() return cachedPermission(dealership, 'manage_finances') end)
+end
+
+local function buildCustomerShowroomTarget(dealership, zone)
+    buildInteractableZone(zone, 'fa-solid fa-car-side', 'View Inventory', function() ST.OpenDealershipUI(dealership) end)
+end
+
+local function buildTradeInAppraisalTarget(dealership, zone)
+    buildInteractableZone(zone, 'fa-solid fa-right-left', 'Get Appraisal', function() ST.OpenDealershipUI(dealership, 'tradein') end)
+end
+
+local function buildCustomTarget(dealership, zone)
+    buildInteractableZone(zone, 'fa-solid fa-location-dot', 'Interact',
+        function() TriggerEvent('st_dealership:customZoneTriggered', dealership, zone.id, zone.label) end)
+end
+
+local function buildPerimeterZone(dealership, zone)
+    local points = parsePoints(zone.points_json)
+    if not points then return end
+    activeLibZones[#activeLibZones + 1] = lib.zones.poly({
+        points = points,
+        thickness = zone.height or 6,
+        onExit = function()
+            if inPerimeterOf == dealership then
+                inPerimeterOf = nil
+                if ST.IsTestDriveActive and ST.IsTestDriveActive() then
+                    lib.notify({ title = 'Test Drive', description = "You're leaving dealership property.", type = 'inform' })
+                end
+            end
+        end,
+        inside = function() inPerimeterOf = dealership end,
+    })
+end
+
+local function buildOfficeZone(dealership, zone)
+    local points = parsePoints(zone.points_json)
+    if not points then return end
+    activeLibZones[#activeLibZones + 1] = lib.zones.poly({
+        points = points,
+        thickness = zone.height or 3,
+        onEnter = function()
+            if not cachedPermission(dealership, 'sell') then
+                lib.notify({ title = zone.label ~= '' and zone.label or 'Office', description = 'Staff only.', type = 'inform' })
+            end
+        end,
+    })
+end
+
+local function rebuildZones()
+    rebuildQueued = false
+    teardownDynamicZones()
+    for dealership, zones in pairs(zonesByDealership) do
+        for _, zone in ipairs(zones) do
+            if zone.zone_type == 'management_pc' then buildManagementPcTarget(dealership, zone)
+            elseif zone.zone_type == 'customer_showroom' then buildCustomerShowroomTarget(dealership, zone)
+            elseif zone.zone_type == 'tradein_appraisal' then buildTradeInAppraisalTarget(dealership, zone)
+            elseif zone.zone_type == 'custom' then buildCustomTarget(dealership, zone)
+            elseif zone.zone_type == 'perimeter' then buildPerimeterZone(dealership, zone)
+            elseif zone.zone_type == 'office' then buildOfficeZone(dealership, zone) end
+        end
+    end
+end
+
+-- requestFullSync sends dealerships one at a time. Debouncing prevents N full
+-- teardown/rebuild cycles during startup when there are N dealerships.
+local function queueRebuild()
+    if rebuildQueued then return end
+    rebuildQueued = true
+    CreateThread(function()
+        Wait(0)
+        rebuildZones()
+    end)
+end
+
+RegisterNetEvent('st_dealership:client:syncZones', function(dealership, zones)
+    zonesByDealership[dealership] = zones or {}
+    queueRebuild()
+end)
+
+RegisterNetEvent('st_dealership:client:brandingUpdated', function(dealership, branding)
+    if ST.CurrentDealership == dealership and branding and branding.theme then
+        SendNUIMessage({ action = 'theme', theme = branding.theme })
+    end
+end)
+
+RegisterNetEvent('st_dealership:client:dealershipDeleted', function(dealership)
+    zonesByDealership[dealership] = nil
+    queueRebuild()
+end)
+
+local INPUT_GUARD_MS, PLACEMENT_TIMEOUT_MS = 250, 120000
+local function confirmPressed() return IsControlJustPressed(0, 18) or IsControlJustPressed(0, 201) end
+local function cancelPressed() return IsControlJustPressed(0, 177) or IsControlJustPressed(0, 194) end
+
+function ST.CaptureZonePoint(zoneType)
+    lib.showTextUI('[Enter] capture this spot   [Backspace] cancel')
+    local started = GetGameTimer()
+    while true do
+        Wait(0)
+        local elapsed = GetGameTimer() - started
+        if elapsed > PLACEMENT_TIMEOUT_MS then
+            lib.notify({ title = 'Zone', description = 'Placement timed out.', type = 'error' })
+            return nil
+        end
+        if elapsed > INPUT_GUARD_MS then
+            if confirmPressed() then
+                local ped = PlayerPedId(); local coords = GetEntityCoords(ped)
+                return { pos = { x = coords.x, y = coords.y, z = coords.z }, heading = GetEntityHeading(ped) }
+            end
+            if cancelPressed() then return nil end
+        end
+    end
+end
+
+function ST.CapturePolygon(zoneType)
+    lib.showTextUI('[E] add corner   [Enter] finish (3+ corners)   [Backspace] undo/cancel')
+    local points, started = {}, GetGameTimer()
+    while true do
+        Wait(0)
+        local coords = GetEntityCoords(PlayerPedId())
+        if GetGameTimer() - started > PLACEMENT_TIMEOUT_MS then
+            lib.notify({ title = 'Zone', description = 'Placement timed out.', type = 'error' })
+            return nil
+        end
+        for i, point in ipairs(points) do
+            DrawMarker(1, point.x, point.y, point.z + .1, 0,0,0,0,0,0,.25,.25,.25,80,200,255,220,false,true,2,false,nil,nil,false)
+            local nextPoint = points[i + 1]
+            if nextPoint then DrawLine(point.x,point.y,point.z+.1,nextPoint.x,nextPoint.y,nextPoint.z+.1,80,200,255,200) end
+        end
+        if #points > 0 then
+            local last = points[#points]
+            DrawLine(last.x,last.y,last.z+.1,coords.x,coords.y,coords.z+.1,80,200,255,100)
+            if #points >= 3 then local first=points[1];DrawLine(coords.x,coords.y,coords.z+.1,first.x,first.y,first.z+.1,80,200,255,60) end
+        end
+        if GetGameTimer() - started > INPUT_GUARD_MS then
+            if IsControlJustPressed(0, 38) then points[#points + 1] = { x=coords.x, y=coords.y, z=coords.z } end
+            if confirmPressed() then
+                if #points >= 3 then return { points = points, heading = GetEntityHeading(PlayerPedId()) } end
+                lib.notify({ title='Zone', description='Place at least 3 corners first.', type='error' })
+            end
+            if cancelPressed() then
+                if #points > 0 then points[#points] = nil else return nil end
+            end
+        end
+    end
+end
