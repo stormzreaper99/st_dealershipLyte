@@ -4,8 +4,8 @@ lua54 'yes'
 
 name 'st_dealership'
 author 'Storms Technologies'
-description 'Dynamic vehicle dealership framework - inventory, acquisition, negotiation, financing, market economy'
-version '1.0.0'
+description 'Premium Qbox vehicle dealership - inventory, negotiation, financing, trade-ins and management'
+version '2.0.0'
 
 shared_scripts {
     '@ox_lib/init.lua',
@@ -24,14 +24,10 @@ client_scripts {
     'client/sync.lua',
     'client/registry.lua',
     'client/catalog.lua',
-    'client/admin.lua',
     'client/zones.lua',
-    'client/lighting.lua',
     'client/display.lua',
     'client/vehiclekeys.lua',
     'client/financing.lua',
-    'client/vehiclephoto.lua',
-    'client/factorydelivery.lua',
     'client/tradein.lua',
     'client/testdrive.lua',
     'client/purchase.lua',
@@ -44,8 +40,6 @@ files {
     'web/index.html',
     'web/css/style.css',
     'web/js/app.js',
-    'web/js/frame.js',
-    'web/img/laptop-frame.png',
 }
 
 server_scripts {
@@ -60,22 +54,17 @@ server_scripts {
     'server/inventory.lua',
     'server/market.lua',
     'server/ownership.lua',
-    'server/factorydelivery.lua',
     'server/sales.lua',
     'server/financing.lua',
     'server/financingrequests.lua',
     'server/trades.lua',
-    'server/transfers.lua',
     'server/auctions.lua',
     'server/employees.lua',
     'server/branding.lua',
-    'server/lighting.lua',
     'server/zones.lua',
     'server/display.lua',
     'server/vehiclekeys.lua',
-    'server/photoupload.lua',
     'server/vehiclephoto.lua',
-    'server/aging.lua',
 }
 
 dependencies {
@@ -93,7 +82,6 @@ server_exports {
     'GetVehicleByVin',
     'AdjustVehiclePrice',
     'GetMarketPrice',
-    'TransferInventory',
     'OpenAuction',
     'CompleteRepo',
     'MakeLoanPayment',
