@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dealership</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<!--
+  Laptop frame wrapper. The whole composition (frame image + app) is
+  authored at 1920x1080 and scales as one uniform unit to fit the actual
+  client resolution - exactly 1:1 at 1920x1080, scaled up proportionally
+  above that, scaled down (never cropped) below it. See frame.js for the
+  inner content scale, which additionally shrinks the existing app UI
+  (itself built assuming a full 1920x1080 canvas) down to fit within the
+  laptop's screen cutout specifically.
+-->
+<div id="frame-viewport" class="hidden">
+  <div id="frame-1920">
+    <img id="frame-image" src="img/laptop-frame.png" alt="" />
+    <div id="screen-cutout">
+      <div id="app-scale-wrapper">
+
+<div id="app" class="hidden">
+
+  <aside class="rail">
+    <div class="rail-brand">
+      <span class="rail-brand-mark" id="dealership-initial">S</span>
+    </div>
+    <nav class="rail-nav" id="rail-nav">
+      <button class="rail-btn active" data-view="showroom" title="Showroom">
+        <svg viewBox="0 0 24 24"><path d="M3 12l1.5-4.5A2 2 0 0 1 6.4 6h11.2a2 2 0 0 1 1.9 1.5L21 12v6a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1v-1H6v1a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-6z"/><circle cx="7" cy="15" r="1.4"/><circle cx="17" cy="15" r="1.4"/></svg>
+      </button>
+      <button class="rail-btn" data-view="tradein" title="Trade-In">
+        <svg viewBox="0 0 24 24"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg>
+      </button>
+      <button class="rail-btn hidden" data-view="ops" id="nav-ops" title="Dealership Ops">
+        <svg viewBox="0 0 24 24"><path d="M4 21V9l8-6 8 6v12M9 21v-6h6v6"/></svg>
+      </button>
+      <button class="rail-btn hidden" data-view="dashboard" id="nav-dashboard" title="Dashboard">
+        <svg viewBox="0 0 24 24"><path d="M4 19V5M4 19h16M8 19v-6M13 19V9M18 19v-3"/></svg>
+      </button>
+      <button class="rail-btn hidden" data-view="settings" id="nav-settings" title="Dealership Settings">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.04 1.56V21a2 2 0 0 1-4 0v-.09A1.7 1.7 0 0 0 8.96 19.32a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.04H3a2 2 0 0 1 0-4h.09A1.7 1.7 0 0 0 4.68 8.96a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34H9a1.7 1.7 0 0 0 1.04-1.56V3a2 2 0 0 1 4 0v.09a1.7 1.7 0 0 0 1.04 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87V9a1.7 1.7 0 0 0 1.56 1.04H21a2 2 0 0 1 0 4h-.09a1.7 1.7 0 0 0-1.56 1.04z"/></svg>
+      </button>
+    </nav>
+    <button class="rail-btn rail-close" id="btn-close" title="Close (Esc)">
+      <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-title">
+        <h1 id="dealership-name">Dealership</h1>
+        <span class="topbar-type" id="dealership-type">used</span>
+      </div>
+      <div class="topbar-meta">
+        <div class="badge" id="role-badge">Customer</div>
+        <div class="balance hidden" id="balance-pill">
+          <span class="balance-label">Balance</span>
+          <span class="balance-value" id="balance-value">$0</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="view-host" id="view-host">
+      <!-- SHOWROOM -->
+      <section class="view" id="view-showroom">
+        <div class="view-toolbar">
+          <div class="field-search">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input type="text" id="showroom-search" placeholder="Search inventory" />
+          </div>
+          <select id="showroom-sort">
+            <option value="price_asc">Price: low to high</option>
+            <option value="price_desc">Price: high to low</option>
+            <option value="mileage_asc">Mileage: low to high</option>
+            <option value="days_desc">Longest on lot</option>
+          </select>
+        </div>
+        <div class="grid" id="showroom-grid"></div>
+        <div class="empty-state hidden" id="showroom-empty">
+          <p class="empty-title">The lot is empty</p>
+          <p class="empty-sub">Nothing matches right now. Check back soon or adjust your search.</p>
+        </div>
+      </section>
+
+      <!-- TRADE-IN -->
+      <section class="view hidden" id="view-tradein">
+        <div class="panel narrow">
+          <p class="panel-title">Trade in your vehicle</p>
+          <p class="panel-sub">Sit in the vehicle you want appraised, then request an offer.</p>
+          <button class="btn primary" id="btn-appraise">Get appraisal</button>
+          <div id="tradein-result" class="tradein-result hidden"></div>
+        </div>
+      </section>
+
+      <!-- DEALERSHIP OPS (employees) -->
+      <section class="view hidden" id="view-ops">
+        <div class="subtabs">
+          <button class="subtab active" data-subtab="ops-inventory">Inventory</button>
+          <button class="subtab" data-subtab="ops-order">Order from factory</button>
+          <button class="subtab" data-subtab="ops-auctions">Auctions</button>
+          <button class="subtab" data-subtab="ops-staff">Staff</button>
+          <button class="subtab" data-subtab="ops-display">Display Slots</button>
+          <button class="subtab" data-subtab="ops-trade">Dealer Trade</button>
+        </div>
+        <div class="subview" id="ops-inventory">
+          <table class="data-table" id="ops-inventory-table">
+            <thead>
+              <tr><th>Vehicle</th><th>VIN</th><th>Mileage</th><th>Condition</th><th>Days</th><th>Asking</th><th></th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="subview hidden" id="ops-order">
+          <div class="grid catalog-grid" id="catalog-grid"></div>
+          <p class="panel-title" style="margin-top:20px;">Orders in progress</p>
+          <div id="pending-orders-list"></div>
+        </div>
+        <div class="subview hidden" id="ops-auctions">
+          <div class="grid" id="auctions-grid"></div>
+        </div>
+        <div class="subview hidden" id="ops-staff">
+          <div class="panel narrow">
+            <p class="panel-title">Hire staff</p>
+            <p class="panel-sub">The target player must be online and standing nearby (or anywhere on the server - their server ID is all that's needed).</p>
+            <div class="modal-field">
+              <label>Player ID</label>
+              <input type="number" id="hire-player-id" class="num-input" style="width:100%;" min="1" />
+            </div>
+            <div class="modal-field">
+              <label>Grade</label>
+              <select id="hire-grade" style="width:100%;"></select>
+            </div>
+            <button class="btn primary block" id="btn-hire">Hire</button>
+          </div>
+          <table class="data-table" id="staff-table" style="margin-top:20px;">
+            <thead><tr><th>Player</th><th>Grade</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="subview hidden" id="ops-display">
+          <p class="panel-sub" style="margin-bottom:16px;">Assign an in-stock vehicle to each display slot placed in Settings &gt; Zones. Selling that vehicle clears the slot automatically.</p>
+          <table class="data-table" id="display-table">
+            <thead><tr><th>Slot</th><th>Assigned vehicle</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="subview hidden" id="ops-trade">
+          <div class="panel narrow">
+            <p class="panel-title">Send a vehicle to another dealership</p>
+            <p class="panel-sub">A cash adjustment (optional) is what the target dealership pays you - use a negative number if you're paying them instead.</p>
+            <div class="modal-field">
+              <label>Vehicle (from your inventory)</label>
+              <select id="trade-vin" style="width:100%;"></select>
+            </div>
+            <div class="modal-field">
+              <label>Send to</label>
+              <select id="trade-target" style="width:100%;"></select>
+            </div>
+            <div class="modal-field">
+              <label>Cash adjustment</label>
+              <input type="number" id="trade-cash" class="num-input" style="width:100%;" value="0" />
+            </div>
+            <button class="btn primary block" id="btn-submit-transfer">Send offer</button>
+          </div>
+          <p class="panel-title" style="margin-top:20px;">Incoming offers</p>
+          <table class="data-table" id="incoming-transfers-table">
+            <thead><tr><th>From</th><th>Vehicle</th><th>Cash adjustment</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <p class="panel-title" style="margin-top:20px;">Outgoing offers</p>
+          <table class="data-table" id="outgoing-transfers-table">
+            <thead><tr><th>To</th><th>Vehicle</th><th>Cash adjustment</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+
+      <!-- DASHBOARD (management/owner) -->
+      <section class="view hidden" id="view-dashboard">
+        <div class="dash-grid">
+          <div class="panel">
+            <p class="panel-title">Dealer intelligence</p>
+            <div id="dash-intel"></div>
+          </div>
+          <div class="panel">
+            <p class="panel-title">Aging inventory</p>
+            <div id="dash-aging"></div>
+            <div class="clearance-form">
+              <input type="number" id="clearance-days" placeholder="Days on lot" value="60" />
+              <input type="number" id="clearance-percent" placeholder="Discount %" value="15" />
+              <button class="btn ghost" id="btn-clearance">Run clearance sale</button>
+            </div>
+          </div>
+          <div class="panel">
+            <p class="panel-title">Employee leaderboard</p>
+            <div id="dash-leaderboard"></div>
+          </div>
+          <div class="panel">
+            <p class="panel-title">Reputation</p>
+            <div id="dash-reputation"></div>
+          </div>
+          <div class="panel" style="grid-column: 1 / -1;">
+            <p class="panel-title">Active financing</p>
+            <p class="panel-sub">Missed payments are flagged the moment they're due. A repo-eligible vehicle's location updates live once it's pulled out of a garage - no need to keep re-pinging it.</p>
+            <table class="data-table" id="financing-table">
+              <thead><tr><th>Customer</th><th>Vehicle</th><th>Balance</th><th>Monthly</th><th>Next due</th><th>Missed</th><th>Status</th><th></th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="panel" style="grid-column: 1 / -1;">
+            <p class="panel-title">Financing requests</p>
+            <p class="panel-sub">Customers with a past repossession can't self-approve financing anymore - their requests land here for manual review.</p>
+            <table class="data-table" id="financing-requests-table">
+              <thead><tr><th>Customer</th><th>Vehicle</th><th>Price</th><th>Down</th><th>Terms</th><th></th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- SETTINGS (owner) -->
+      <section class="view hidden" id="view-settings">
+        <div class="subtabs">
+          <button class="subtab active" data-subtab="set-branding">Branding</button>
+          <button class="subtab" data-subtab="set-zones">Zones &amp; targets</button>
+          <button class="subtab" data-subtab="set-lighting">Lighting</button>
+        </div>
+
+        <div class="subview" id="set-branding">
+          <div class="panel narrow">
+            <p class="panel-title">Dealership branding</p>
+            <p class="panel-sub">Changes apply live for everyone on the server.</p>
+            <div class="modal-field">
+              <label>Dealership name</label>
+              <input type="text" id="brand-name" class="num-input" style="width:100%;" />
+            </div>
+            <div class="modal-field">
+              <label>Blip sprite ID</label>
+              <input type="number" id="brand-sprite" class="num-input" style="width:100%;" />
+            </div>
+            <div class="modal-field">
+              <label>Blip color ID</label>
+              <input type="number" id="brand-color" class="num-input" style="width:100%;" />
+            </div>
+            <div class="modal-field">
+              <label>Blip scale</label>
+              <input type="number" step="0.1" id="brand-scale" class="num-input" style="width:100%;" />
+            </div>
+            <button class="btn primary block" id="btn-save-branding">Save branding</button>
+          </div>
+        </div>
+
+        <div class="subview hidden" id="set-zones">
+          <div class="settings-toolbar">
+            <select id="zone-type-select"></select>
+            <button class="btn primary" id="btn-add-zone">Add zone</button>
+          </div>
+          <table class="data-table">
+            <thead><tr><th>Type</th><th>Label</th><th>Shape</th><th>Position</th><th></th></tr></thead>
+            <tbody id="zones-table-body"></tbody>
+          </table>
+        </div>
+
+        <div class="subview hidden" id="set-lighting">
+          <div class="settings-toolbar">
+            <select id="light-type-select"></select>
+            <button class="btn primary" id="btn-add-light">Add light</button>
+          </div>
+          <table class="data-table">
+            <thead><tr><th>Type</th><th>Label</th><th>Color</th><th>Brightness</th><th>Range</th><th></th></tr></thead>
+            <tbody id="lights-table-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<!-- DETAIL SLIDE-OVER -->
+<div class="overlay hidden" id="detail-overlay">
+  <aside class="detail-panel" id="detail-panel"></aside>
+</div>
+
+<!-- CONFIRM / FORM MODAL -->
+<div class="overlay hidden" id="modal-overlay">
+  <div class="modal" id="modal"></div>
+</div>
+
+<!-- ADMIN CONSOLE (/admindealership - independent of the per-dealership app above) -->
+<div id="admin-app" class="hidden">
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-title">
+        <h1>Dealership Admin</h1>
+        <span class="topbar-type">every dealership on the server</span>
+      </div>
+      <div class="topbar-meta">
+        <button class="btn ghost small" id="admin-close-btn">Close</button>
+      </div>
+    </header>
+    <main class="view-host">
+      <div class="subtabs">
+        <button class="subtab active" data-subtab="admin-dealerships">Dealerships</button>
+        <button class="subtab" data-subtab="admin-catalog">Vehicle Catalog</button>
+      </div>
+
+      <div class="subview" id="admin-dealerships">
+        <div class="view-toolbar">
+          <div class="field-search">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input type="text" id="admin-search" placeholder="Search dealerships" />
+          </div>
+        </div>
+        <table class="data-table" id="admin-table">
+          <thead>
+            <tr><th>Dealership</th><th>Job</th><th>Type</th><th>Balance</th><th>Source</th><th></th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div class="empty-state hidden" id="admin-empty">
+          <p class="empty-title">No dealerships found</p>
+          <p class="empty-sub">Try a different search, or create one with /newdealership.</p>
+        </div>
+      </div>
+
+      <div class="subview hidden" id="admin-catalog">
+        <div class="view-toolbar">
+          <div class="field-search">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input type="text" id="catalog-search" placeholder="Search catalog" />
+          </div>
+          <button class="btn primary" id="btn-add-catalog-vehicle">Add vehicle</button>
+        </div>
+        <p class="panel-sub" style="margin-bottom:14px;">Every dealership's "Order from Factory" list pulls from this catalog. Built-in vehicles (from the resource's config) can be edited here but not removed; anything you add can be edited or removed freely.</p>
+        <table class="data-table" id="catalog-admin-table">
+          <thead>
+            <tr><th>Model</th><th>Label</th><th>Category</th><th>MSRP</th><th>Rarity</th><th>Source</th><th></th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- TOASTS -->
+<div class="toast-stack" id="toast-stack"></div>
+
+      </div> <!-- #app-scale-wrapper -->
+
+      <!--
+        Deliberately OUTSIDE #app-scale-wrapper (a sibling, not a child) so
+        this control is never itself affected by the scale it adjusts -
+        if a bad X/Y value ever shrunk the app to nothing, this button
+        must still be reachable to fix it.
+      -->
+      <button id="display-settings-btn" title="Display settings">&#9881;</button>
+      <div id="display-settings-panel" class="hidden">
+        <p class="ds-title">Display scale</p>
+        <label for="ds-scale-x">Horizontal</label>
+        <input type="range" id="ds-scale-x" min="0.5" max="1.5" step="0.01" value="1" />
+        <label for="ds-scale-y">Vertical</label>
+        <input type="range" id="ds-scale-y" min="0.5" max="1.5" step="0.01" value="1" />
+        <div class="ds-row">
+          <button id="ds-reset">Reset</button>
+          <button id="ds-close">Close</button>
+        </div>
+      </div>
+    </div> <!-- #screen-cutout -->
+  </div> <!-- #frame-1920 -->
+</div> <!-- #frame-viewport -->
+
+<script src="js/frame.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
