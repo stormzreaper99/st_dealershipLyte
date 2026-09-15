@@ -87,17 +87,38 @@ function ST.AdjustVehiclePrice(src, vin, newAskingPrice)
 end
 exports('AdjustVehiclePrice', ST.AdjustVehiclePrice)
 
+-- Inventory lists are intentionally narrow. condition/history/modification
+-- blobs can be large; loading them for every vehicle card wastes database
+-- bandwidth and JSON decode work. getVehicle remains the detailed endpoint.
+local INVENTORY_COLUMNS = [[
+    id, vin, dealership, model, plate, mileage, condition_json,
+    purchase_cost, asking_price, min_price, acquisition_source,
+    previous_owners, title_status, financing_eligible, photos_json, status, inspected
+]]
+
 function ST.GetDealershipInventory(dealershipName, statusFilter)
-    local query, params = 'SELECT * FROM st_dealership_vehicles WHERE dealership = ?', { dealershipName }
+    local query = ('SELECT %s FROM st_dealership_vehicles WHERE dealership = ?'):format(INVENTORY_COLUMNS)
+    local params = { dealershipName }
     if statusFilter then query = query .. ' AND status = ?'; params[#params + 1] = statusFilter end
+    query = query .. ' ORDER BY updated_at DESC'
     return MySQL.query.await(query, params) or {}
 end
 exports('GetDealershipInventory', ST.GetDealershipInventory)
 
-function ST.GetVehicleByVin(vin) return MySQL.single.await('SELECT * FROM st_dealership_vehicles WHERE vin = ?', { vin }) end
+function ST.GetVehicleByVin(vin)
+    return MySQL.single.await('SELECT * FROM st_dealership_vehicles WHERE vin = ?', { vin })
+end
 exports('GetVehicleByVin', ST.GetVehicleByVin)
 
-lib.callback.register('st_dealership:server:getInventory', function(src, dealershipName) return ST.GetDealershipInventory(dealershipName, 'in_stock') end)
-lib.callback.register('st_dealership:server:getVehicle', function(src, vin) return ST.GetVehicleByVin(vin) end)
-lib.callback.register('st_dealership:server:inspectVehicle', function(src, vin) return ST.InspectVehicle(src, vin) end)
-lib.callback.register('st_dealership:server:adjustPrice', function(src, vin, newAskingPrice) return ST.AdjustVehiclePrice(src, vin, newAskingPrice) end)
+lib.callback.register('st_dealership:server:getInventory', function(src, dealershipName)
+    return ST.GetDealershipInventory(dealershipName, 'in_stock')
+end)
+lib.callback.register('st_dealership:server:getVehicle', function(src, vin)
+    return ST.GetVehicleByVin(vin)
+end)
+lib.callback.register('st_dealership:server:inspectVehicle', function(src, vin)
+    return ST.InspectVehicle(src, vin)
+end)
+lib.callback.register('st_dealership:server:adjustPrice', function(src, vin, newAskingPrice)
+    return ST.AdjustVehiclePrice(src, vin, newAskingPrice)
+end)
