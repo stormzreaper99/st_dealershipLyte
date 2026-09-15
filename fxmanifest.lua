@@ -5,7 +5,7 @@ lua54 'yes'
 name 'st_dealership'
 author 'Storms Technologies'
 description 'Premium Qbox vehicle dealership - inventory, negotiation, financing, trade-ins and management'
-version '2.0.0'
+version '2.0.1'
 
 shared_scripts {
     '@ox_lib/init.lua',
@@ -20,6 +20,7 @@ shared_scripts {
 }
 
 client_scripts {
+    '@qbx_core/modules/playerdata.lua',
     'client/main.lua',
     'client/sync.lua',
     'client/registry.lua',
