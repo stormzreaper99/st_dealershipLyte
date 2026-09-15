@@ -4,7 +4,7 @@ function ST.GiveKeysForVehicle(veh)
     if not DoesEntityExist(veh) then return end
     local plate = plateOf(veh)
     if GetResourceState('MrNewbVehicleKeys') == 'started' then
-        TriggerServerEvent('st_dealership:server:giveMrNewbKeys', plate)
+        exports.MrNewbVehicleKeys:GiveKeysByPlate(plate)
     elseif GetResourceState('qbx_vehiclekeys') == 'started' then
         TriggerServerEvent('st_dealership:server:giveVehicleKeys', NetworkGetNetworkIdFromEntity(veh))
     elseif GetResourceState('qb-vehiclekeys') == 'started' then
@@ -30,7 +30,7 @@ function ST.RemoveKeysForVehicle(veh)
     if not DoesEntityExist(veh) then return end
     local plate = plateOf(veh)
     if GetResourceState('MrNewbVehicleKeys') == 'started' then
-        TriggerServerEvent('st_dealership:server:removeMrNewbKeys', plate)
+        exports.MrNewbVehicleKeys:RemoveKeysByPlate(plate)
     elseif GetResourceState('qbx_vehiclekeys') == 'started' then
         TriggerServerEvent('st_dealership:server:removeVehicleKeys', NetworkGetNetworkIdFromEntity(veh))
     elseif GetResourceState('wasabi_carlock') == 'started' then
